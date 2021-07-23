@@ -1,0 +1,5 @@
+Testing for this sentence 198 to be parsed & understood including ( ) with "strings" as well;
+another line here 
+
+if(true){return 884;} else {return "143";}
+Test
