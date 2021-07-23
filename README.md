@@ -2,6 +2,8 @@
 This is a compiler(Wrote in rust) for a language called Xonyx, the language will be based on aspects taken from Javascript, Java, Rust and Python. The grammar has not been created yet and the process is just getting started!
 
 # Contributing
+1. To get it to run `cargo build` then `cargo run`
+
 Ill be making tickets here soon so the work is easier to navigate. If you're down to work on this, take a stab! Feel free to reach out on discord: Cantum2#9236 
 
 # Roadmap
