@@ -1,0 +1,57 @@
+# //// Reference /////
+There might be some logic in here that doesnt make sense quite yet but I am working on it
+# ////////////////////
+
+TODO: handle cases like let variable: Number = 25 + 12; or let variable: Number = var2 + 12;
+
+
+
+SemiColon(;)
+Colon(:)
+Assignment(=)
+Comma(,)
+ReturnTypeDec(~)
+
+input: 
+  empty: ErrorState
+  program
+
+program:
+  classdec |
+  program classdec
+  
+classdec: 
+  Class Identifier blockbody
+  
+blockbody: 
+  LCurly vardecs RCurly |
+  LCurly RCurly
+
+type:
+  Word|Number|Boolean
+
+vardecs: 
+    vardecs vardec |
+    vardec
+
+vardec:
+  let identifier COLON type |
+  let identifier COLON type Comma |
+  let identifier COLON type SemiColon |
+  let identifier COLON type Assignment value SemiColon |
+  let identifier COLON Function Assignment functiondec
+
+value: 
+  Quote value Quote | 
+  variable + value |
+  value + variable |
+  variable - value |
+  value - variable |
+  variable * value |
+  value * variable |
+  variable / value |
+  value / variable |
+
+
+functiondec:
+  LParen vardecs RParen ReturnTypeDec type blockbody

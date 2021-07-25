@@ -1,26 +1,41 @@
-use std::io;
-use std::io::Read;
-use std::iter::FromIterator;
+#[derive(Debug)]
+pub enum Keyword {
+    IF,
+    RETURN,
+    ELSE,
+    CLASS,
+    LET,
+    PRINT,
+    SECTION,
+}
 
+#[derive(Debug)]
+pub enum Symbol {
+    LParen,
+    RParen,
+    Quote,
+    BinOp(char), // +, -, *, /
+    Sqrt,  // ^
+    LCurly,
+    RCurly,
+    Comma,
+    Colon,
+    SemiColon,
+    Assignment,
+    Comparison,
+    ReturnType // ~
+}
+
+// TODO create generic lexeme for types
 #[derive(Debug)]
 pub enum Lexeme {
     Word(Vec<char>),
     Number(i64),
-    LParen(char),
-    RParen(char),
-    QUOTE(char),
-    SemiColon(char),
-    Add(char),
-    Subtract(char),
-    Divide(char),
-    Sqrt(char),
-    Multiply(char),
-    LCurly(char),
-    RCurly(char),
-    VarDec(Vec<char>), // change me
-    IF,
-    RETURN,
-    ELSE,
+    Boolean(bool),
+    Function,
+    Identifier(Vec<char>),
+    Keyword(Keyword),
+    Symbol(Symbol),
     Unknown,
 }
 
@@ -56,6 +71,38 @@ impl Lexer {
         }
     }
 
+    fn peek_next_char(&self) -> char {
+        let next_char = self.input.iter().nth(self.position + 1);
+        if let Some(inside) = next_char {
+            *inside
+        } else {
+            panic!("Next char is unknown");
+        }
+    }
+
+    fn set_file_navigators(&mut self) {
+        // while self.current_char != ' ' {
+
+        // }
+        self.position = self.position + 1;
+        self.read_position = self.read_position + 1;
+        self.current_char = if self.input.get(self.position).is_some() {
+            *self.input.get(self.position).unwrap()
+        } else {
+            '0'
+        };
+    }
+    
+    fn go_to_next_line(&mut self) {
+        while self.current_char != '\n' {
+            println!("{}", self.current_char);
+            self.set_file_navigators();
+        }
+        self.current_line_no += 1;
+        self.read_position = 0;
+        self.set_file_navigators();
+    }
+
     fn parse_word(&mut self) -> Node {
         // only check after our current position -- micro-optimization
         let index_of_terminal = &self.input[self.position..].iter().position(|&val| {
@@ -66,58 +113,87 @@ impl Lexer {
                 || val == '('
                 || val == ')'
                 || val == '"'
+                || val == ':'
+                || val == '~'
         });
         if index_of_terminal.is_some() {
-            let tok_value: Vec<char> = self.input[self.position..index_of_terminal.unwrap() + self.position].to_vec();
+            let tok_value: Vec<char> =
+                self.input[self.position..index_of_terminal.unwrap() + self.position].to_vec();
             self.position = index_of_terminal.unwrap() - 1 + self.position;
             let string: String = tok_value.into_iter().collect();
             self.read_position = self.read_position + string.len();
             match string.as_str() {
                 "if" => {
-                    let n = Node {
-                        lexeme: Lexeme::IF,
+                    Node {
+                        lexeme: Lexeme::Keyword(Keyword::IF),
                         line_number: self.current_line_no,
-                        start_col:  self.read_position - string.len(),
+                        start_col: self.read_position - string.len(),
                         end_col: self.read_position,
-                    };
-                    self.read_position = self.read_position + 2;
-                    n
+                    }
                 }
                 "else" => {
-                    let n = Node {
-                        lexeme: Lexeme::ELSE,
+                    Node {
+                        lexeme: Lexeme::Keyword(Keyword::ELSE),
                         line_number: self.current_line_no,
-                        start_col:  self.read_position - string.len(),
+                        start_col: self.read_position - string.len(),
                         end_col: self.read_position,
-                    };
-                    self.read_position = self.read_position + 4;
-                    n
-            },
+                    }
+                },
+                "class" =>  {
+                    Node {
+                        lexeme: Lexeme::Keyword(Keyword::CLASS),
+                        line_number: self.current_line_no,
+                        start_col: self.read_position - string.len(),
+                        end_col: self.read_position,
+                    }
+                },
+                "let"  => {
+                    Node {
+                        lexeme: Lexeme::Keyword(Keyword::LET),
+                        line_number: self.current_line_no,
+                        start_col: self.read_position - string.len(),
+                        end_col: self.read_position,
+                    }
+                },
+                "print" =>  {
+                    Node {
+                        lexeme: Lexeme::Keyword(Keyword::PRINT),
+                        line_number: self.current_line_no,
+                        start_col: self.read_position - string.len(),
+                        end_col: self.read_position,
+                    }
+                },
+                "section" =>  {
+                    Node {
+                        lexeme: Lexeme::Keyword(Keyword::SECTION),
+                        line_number: self.current_line_no,
+                        start_col: self.read_position - string.len(),
+                        end_col: self.read_position,
+                    }
+                },
                 "return" => {
-                    let n = Node {
-                        lexeme: Lexeme::RETURN,
+                    Node {
+                        lexeme: Lexeme::Keyword(Keyword::RETURN),
                         line_number: self.current_line_no,
-                        start_col:  self.read_position - string.len(),
+                        start_col: self.read_position - string.len(),
                         end_col: self.read_position,
-                    };
-                    self.read_position = self.read_position + 6;
-                    n
-            },
+                    }
+                }
                 _ => {
+                    // TODO handle when its a type dec vs a string
                     let node: Node = match string.parse::<i64>() {
-                        Ok(number) => {
-                            Node {
+                        Ok(number) => Node {
                             lexeme: Lexeme::Number(number),
                             line_number: self.current_line_no,
-                            start_col:  self.read_position - string.len(),
+                            start_col: self.read_position - string.len(),
                             end_col: self.read_position,
-                        }},
-                        Err(e) => {Node {
-                            lexeme: Lexeme::Word(string.chars().collect()),
+                        },
+                        Err(e) => Node {
+                            lexeme: Lexeme::Identifier(string.chars().collect()),
                             line_number: self.current_line_no,
-                            start_col:  self.read_position - string.len(),
+                            start_col: self.read_position - string.len(),
                             end_col: self.read_position,
-                        }},
+                        },
                     };
                     node
                 }
@@ -132,26 +208,23 @@ impl Lexer {
         }
     }
 
-    fn advance(&mut self) {}
 
     pub fn lex(&mut self) -> Vec<Node> {
         let mut nodes: Vec<Node> = Vec::new();
         while self.position < self.input.len() {
-            println!("Current char: {}", &self.current_char);
             match self.current_char {
                 '(' => {
                     let node = Node {
-                        lexeme: Lexeme::LParen('('),
+                        lexeme: Lexeme::Symbol(Symbol::LParen),
                         line_number: self.current_line_no,
                         start_col: self.read_position,
                         end_col: self.read_position + 1,
                     };
-                    println!("Found paren");
                     nodes.push(node);
                 }
                 ')' => {
                     let node = Node {
-                        lexeme: Lexeme::RParen('('),
+                        lexeme: Lexeme::Symbol(Symbol::RParen),
                         line_number: self.current_line_no,
                         start_col: self.read_position,
                         end_col: self.read_position + 1,
@@ -159,17 +232,13 @@ impl Lexer {
                     nodes.push(node);
                 }
                 '"' => {
-                    let node = Node {
-                        lexeme: Lexeme::QUOTE('"'),
-                        line_number: self.current_line_no,
-                        start_col: self.read_position,
-                        end_col: self.read_position + 1,
-                    };
+                    // TODO handle strings
+                    let node = self.parse_word();
                     nodes.push(node);
                 }
                 '{' => {
                     let node = Node {
-                        lexeme: Lexeme::LCurly('{'),
+                        lexeme: Lexeme::Symbol(Symbol::LCurly),
                         line_number: self.current_line_no,
                         start_col: self.read_position,
                         end_col: self.read_position + 1,
@@ -178,26 +247,86 @@ impl Lexer {
                 }
                 '}' => {
                     let node = Node {
-                        lexeme: Lexeme::RCurly('}'),
+                        lexeme: Lexeme::Symbol(Symbol::RCurly),
+                        line_number: self.current_line_no,
+                        start_col: self.read_position,
+                        end_col: self.read_position + 1,
+                    };
+                    nodes.push(node);
+                },
+                ':' => {
+                    let node = Node {
+                        lexeme: Lexeme::Symbol(Symbol::Colon),
+                        line_number: self.current_line_no,
+                        start_col: self.read_position,
+                        end_col: self.read_position + 1,
+                    };
+                    nodes.push(node);
+                },
+                ',' => {
+                    let node = Node {
+                        lexeme: Lexeme::Symbol(Symbol::Comma),
+                        line_number: self.current_line_no,
+                        start_col: self.read_position,
+                        end_col: self.read_position + 1,
+                    };
+                    nodes.push(node);
+                },
+                '~' => {
+                    let node = Node {
+                        lexeme: Lexeme::Symbol(Symbol::ReturnType),
                         line_number: self.current_line_no,
                         start_col: self.read_position,
                         end_col: self.read_position + 1,
                     };
                     nodes.push(node);
                 }
+                '/' => {
+                    let next_char = self.peek_next_char();
+                    if next_char == '/' {
+                        self.go_to_next_line();
+                    }  else {
+                        let node = Node {
+                            lexeme: Lexeme::Symbol(Symbol::BinOp(self.current_char)),
+                            line_number: self.current_line_no,
+                            start_col: self.read_position,
+                            end_col: self.read_position + 1,
+                        };
+                        nodes.push(node);
+                    }
+                },
+                '+' | '-' | '*' => {
+                    let node = Node {
+                        lexeme: Lexeme::Symbol(Symbol::BinOp(self.current_char)),
+                        line_number: self.current_line_no,
+                        start_col: self.read_position,
+                        end_col: self.read_position + 1,
+                    };
+                    nodes.push(node);
+                },
+                '=' => {
+                    // TODO look ahead to next char to see if it is = as well. If so then symbol is Comparison
+                    let node = Node {
+                        lexeme: Lexeme::Symbol(Symbol::Assignment),
+                        line_number: self.current_line_no,
+                        start_col: self.read_position,
+                        end_col: self.read_position + 1,
+                    };
+                    nodes.push(node);
+                },
                 ';' => {
                     let node = Node {
-                        lexeme: Lexeme::SemiColon(';'),
+                        lexeme: Lexeme::Symbol(Symbol::SemiColon),
                         line_number: self.current_line_no,
                         start_col: self.read_position,
                         end_col: self.read_position + 1,
                     };
                     nodes.push(node);
-                }
+                },
                 '\n' => {
                     self.current_line_no = self.current_line_no + 1;
                     self.read_position = 0;
-                    println!("nodex on new line: {:?}", nodes);
+                    println!("Hitting new line");
                 }
                 _ => {
                     if self.current_char.is_alphanumeric() {
@@ -205,13 +334,8 @@ impl Lexer {
                     }
                 }
             }
-            self.position = self.position + 1;
-            self.read_position = self.read_position + 1;
-            self.current_char = if self.input.get(self.position).is_some() {
-                *self.input.get(self.position).unwrap()
-            } else {
-                '0'
-            };
+
+            self.set_file_navigators();
         }
         nodes
     }

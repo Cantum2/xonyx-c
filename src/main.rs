@@ -9,10 +9,10 @@ fn main() {
     let text = file_as_text(&file).expect("Bad file");
     println!("{}", &text);
     let mut lexer = lexer::Lexer::new(&text.chars().collect());
-    assert_eq!(lexer.current_char, 'T');
-    assert_eq!(lexer.input.len(), text.len());
-    let toks = lexer.lex();
-    // println!("toks: {:?}", toks);
+    // assert_eq!(lexer.current_char, 'T');
+    // assert_eq!(lexer.input.len(), text.len());
+    let tokens = lexer.lex();
+    println!("tokens: {:#?}", tokens);
 }
 
 fn file_as_text(filename: &str) -> Result<String, io::Error> {
@@ -21,4 +21,3 @@ fn file_as_text(filename: &str) -> Result<String, io::Error> {
     file.read_to_string(&mut text)?;
     Ok(text)
 }
-

@@ -1,0 +1,10 @@
+snippet SnippetName {
+    let Name: Word = "Frank";
+    let CallableSnip: Function = (p1: Number, p2: Word) ~Number {
+        if(p1 > 15) {
+            return 15;
+        } else {
+            return p1 + 123;
+        }
+    }
+}

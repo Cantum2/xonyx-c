@@ -1,0 +1,12 @@
+class Person {
+    let age: Number = 15;
+    let isFriendly: Boolean = true;
+    let testNum: Number = 12 + 13;
+    let testNum: Number = 12 / 13;
+
+
+    let sayWords: Function = (word1: Word, word2: Word) ~Number { // testing comment
+        // string handling like JS
+        print(`${word1} ${word2}`);
+    }
+}
