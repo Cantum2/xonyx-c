@@ -7,14 +7,15 @@ pub enum Keyword {
     LET,
     PRINT,
     SECTION,
+    SNIPPET,
 }
 
 #[derive(Debug)]
 pub enum Symbol {
     LParen,
     RParen,
-    Quote,
     BinOp(char), // +, -, *, /
+    RelationshipOp(Vec<char>), // >, <, >=, <=
     Sqrt,  // ^
     LCurly,
     RCurly,
@@ -23,7 +24,10 @@ pub enum Symbol {
     SemiColon,
     Assignment,
     Comparison,
-    ReturnType // ~
+    ReturnType, // ~
+    TempLiteral,
+    And,
+    Or
 }
 
 // TODO create generic lexeme for types
@@ -81,9 +85,7 @@ impl Lexer {
     }
 
     fn set_file_navigators(&mut self) {
-        // while self.current_char != ' ' {
-
-        // }
+        // TODO ignore whitespace
         self.position = self.position + 1;
         self.read_position = self.read_position + 1;
         self.current_char = if self.input.get(self.position).is_some() {
@@ -103,9 +105,23 @@ impl Lexer {
         self.set_file_navigators();
     }
 
-    fn parse_word(&mut self) -> Node {
-        // only check after our current position -- micro-optimization
-        let index_of_terminal = &self.input[self.position..].iter().position(|&val| {
+    fn parse_string(&mut self) -> Node {
+        let index_of_closing_quote = &self.input[self.position + 1..].iter().position(|&val| {val == '"'});  
+        let tok_value: Vec<char> = self.input[self.position + 1..index_of_closing_quote.unwrap() + self.position + 1].to_vec();
+        let string: String = tok_value.iter().collect();
+        self.read_position = self.read_position + string.len();
+        self.position = index_of_closing_quote.unwrap()  + self.position + 1;
+
+        Node {
+            line_number: self.current_line_no,
+            start_col: self.read_position - string.len(),
+            end_col: self.read_position,
+            lexeme: Lexeme::Word(tok_value)
+        }
+    }
+
+    fn get_index_of_next_terminal(&self) -> Option<usize> {
+        self.input[self.position..].iter().position(|&val| {
             val == ' '
                 || val == ';'
                 || val == '\r'
@@ -115,7 +131,13 @@ impl Lexer {
                 || val == '"'
                 || val == ':'
                 || val == '~'
-        });
+                || val == '='
+        })
+    }
+
+    fn parse_token(&mut self) -> Node {
+        // only check after our current position -- micro-optimization
+        let index_of_terminal = self.get_index_of_next_terminal();
         if index_of_terminal.is_some() {
             let tok_value: Vec<char> =
                 self.input[self.position..index_of_terminal.unwrap() + self.position].to_vec();
@@ -171,6 +193,14 @@ impl Lexer {
                         end_col: self.read_position,
                     }
                 },
+                "snippet" =>  {
+                    Node {
+                        lexeme: Lexeme::Keyword(Keyword::SNIPPET),
+                        line_number: self.current_line_no,
+                        start_col: self.read_position - string.len(),
+                        end_col: self.read_position,
+                    }
+                },
                 "return" => {
                     Node {
                         lexeme: Lexeme::Keyword(Keyword::RETURN),
@@ -180,7 +210,6 @@ impl Lexer {
                     }
                 }
                 _ => {
-                    // TODO handle when its a type dec vs a string
                     let node: Node = match string.parse::<i64>() {
                         Ok(number) => Node {
                             lexeme: Lexeme::Number(number),
@@ -188,7 +217,7 @@ impl Lexer {
                             start_col: self.read_position - string.len(),
                             end_col: self.read_position,
                         },
-                        Err(e) => Node {
+                        Err(_e) => Node {
                             lexeme: Lexeme::Identifier(string.chars().collect()),
                             line_number: self.current_line_no,
                             start_col: self.read_position - string.len(),
@@ -232,9 +261,8 @@ impl Lexer {
                     nodes.push(node);
                 }
                 '"' => {
-                    // TODO handle strings
-                    let node = self.parse_word();
-                    nodes.push(node);
+                    nodes.push(self.parse_string());
+                    self.read_position += 1;
                 }
                 '{' => {
                     let node = Node {
@@ -272,6 +300,44 @@ impl Lexer {
                     };
                     nodes.push(node);
                 },
+                '&' => {
+                    let node = Node {
+                        lexeme: Lexeme::Symbol(Symbol::And),
+                        line_number: self.current_line_no,
+                        start_col: self.read_position,
+                        end_col: self.read_position + 1,
+                    };
+                    nodes.push(node);
+                },
+                '|' => {
+                    let node = Node {
+                        lexeme: Lexeme::Symbol(Symbol::Or),
+                        line_number: self.current_line_no,
+                        start_col: self.read_position,
+                        end_col: self.read_position + 1,
+                    };
+                    nodes.push(node);
+                },
+                '<' => {
+                    
+                    let node = Node {
+                        lexeme: Lexeme::Symbol(Symbol::RelationshipOp(vec!['<'])),
+                        line_number: self.current_line_no,
+                        start_col: self.read_position,
+                        end_col: self.read_position + 1,
+                    };
+                    nodes.push(node);
+                },
+                '>' => {
+                    
+                    let node = Node {
+                        lexeme: Lexeme::Symbol(Symbol::RelationshipOp(vec!['>'])),
+                        line_number: self.current_line_no,
+                        start_col: self.read_position,
+                        end_col: self.read_position + 1,
+                    };
+                    nodes.push(node);
+                },
                 '~' => {
                     let node = Node {
                         lexeme: Lexeme::Symbol(Symbol::ReturnType),
@@ -295,19 +361,30 @@ impl Lexer {
                         nodes.push(node);
                     }
                 },
+                '=' => {
+                    let next_char = self.peek_next_char();
+                    if next_char == '=' {
+                        let node = Node {
+                            lexeme: Lexeme::Symbol(Symbol::Comparison),
+                            line_number: self.current_line_no,
+                            start_col: self.read_position,
+                            end_col: self.read_position + 2,
+                        };
+                        self.set_file_navigators();
+                        nodes.push(node);
+                    }  else {
+                        let node = Node {
+                            lexeme: Lexeme::Symbol(Symbol::Assignment),
+                            line_number: self.current_line_no,
+                            start_col: self.read_position,
+                            end_col: self.read_position + 1,
+                        };
+                        nodes.push(node);
+                    }                 
+                },
                 '+' | '-' | '*' => {
                     let node = Node {
                         lexeme: Lexeme::Symbol(Symbol::BinOp(self.current_char)),
-                        line_number: self.current_line_no,
-                        start_col: self.read_position,
-                        end_col: self.read_position + 1,
-                    };
-                    nodes.push(node);
-                },
-                '=' => {
-                    // TODO look ahead to next char to see if it is = as well. If so then symbol is Comparison
-                    let node = Node {
-                        lexeme: Lexeme::Symbol(Symbol::Assignment),
                         line_number: self.current_line_no,
                         start_col: self.read_position,
                         end_col: self.read_position + 1,
@@ -326,11 +403,10 @@ impl Lexer {
                 '\n' => {
                     self.current_line_no = self.current_line_no + 1;
                     self.read_position = 0;
-                    println!("Hitting new line");
                 }
                 _ => {
                     if self.current_char.is_alphanumeric() {
-                        nodes.push(self.parse_word());
+                        nodes.push(self.parse_token());
                     }
                 }
             }

@@ -2,8 +2,13 @@ class Person {
     let age: Number = 15;
     let isFriendly: Boolean = true;
     let testNum: Number = 12 + 13;
-    let testNum: Number = 12 / 13;
+    let testNumAgain: Number = 12 / 13;
+    let wordTesting: Word = "Hello World";
 
+    // this is a comment 
+    if(age == 5) {
+        return 5;
+    }
 
     let sayWords: Function = (word1: Word, word2: Word) ~Number { // testing comment
         // string handling like JS
