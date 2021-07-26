@@ -1,4 +1,4 @@
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum Keyword {
     IF,
     RETURN,
@@ -10,7 +10,7 @@ pub enum Keyword {
     SNIPPET,
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum Symbol {
     LParen,
     RParen,
@@ -31,7 +31,7 @@ pub enum Symbol {
 }
 
 // TODO create generic lexeme for types
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum Lexeme {
     Word(Vec<char>),
     Number(i64),
@@ -43,7 +43,7 @@ pub enum Lexeme {
     Unknown,
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct Node {
     lexeme: Lexeme,
     line_number: i32,
@@ -66,11 +66,7 @@ impl Lexer {
             input: input.clone(),
             position: 0,
             read_position: 1,
-            current_char: if input.get(0).is_some() {
-                *input.get(0).unwrap()
-            } else {
-                panic!("panic")
-            },
+            current_char: *input.get(0).unwrap_or_else(|| panic!("panic")),
             current_line_no: 1,
         }
     }
@@ -88,11 +84,7 @@ impl Lexer {
         // TODO ignore whitespace
         self.position = self.position + 1;
         self.read_position = self.read_position + 1;
-        self.current_char = if self.input.get(self.position).is_some() {
-            *self.input.get(self.position).unwrap()
-        } else {
-            '0'
-        };
+        self.current_char = *self.input.get(self.position).unwrap_or(&'0');
     }
     
     fn go_to_next_line(&mut self) {
@@ -138,11 +130,10 @@ impl Lexer {
     fn parse_token(&mut self) -> Node {
         // only check after our current position -- micro-optimization
         let index_of_terminal = self.get_index_of_next_terminal();
-        if index_of_terminal.is_some() {
-            let tok_value: Vec<char> =
-                self.input[self.position..index_of_terminal.unwrap() + self.position].to_vec();
-            self.position = index_of_terminal.unwrap() - 1 + self.position;
-            let string: String = tok_value.into_iter().collect();
+        if let Some(index) = index_of_terminal {
+            let string: String =
+                self.input[self.position..index + self.position].into_iter().collect();
+            self.position = index - 1 + self.position;
             self.read_position = self.read_position + string.len();
             match string.as_str() {
                 "if" => {
@@ -347,19 +338,8 @@ impl Lexer {
                     };
                     nodes.push(node);
                 }
-                '/' => {
-                    let next_char = self.peek_next_char();
-                    if next_char == '/' {
-                        self.go_to_next_line();
-                    }  else {
-                        let node = Node {
-                            lexeme: Lexeme::Symbol(Symbol::BinOp(self.current_char)),
-                            line_number: self.current_line_no,
-                            start_col: self.read_position,
-                            end_col: self.read_position + 1,
-                        };
-                        nodes.push(node);
-                    }
+                '/' if self.peek_next_char() == '/' => {
+                    self.go_to_next_line();
                 },
                 '=' => {
                     let next_char = self.peek_next_char();
@@ -382,7 +362,7 @@ impl Lexer {
                         nodes.push(node);
                     }                 
                 },
-                '+' | '-' | '*' => {
+                '+' | '-' | '*' | '/' => {
                     let node = Node {
                         lexeme: Lexeme::Symbol(Symbol::BinOp(self.current_char)),
                         line_number: self.current_line_no,
@@ -414,5 +394,38 @@ impl Lexer {
             self.set_file_navigators();
         }
         nodes
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn lex_empty_string() {
+        let test = String::from("");
+
+        let mut lexer = Lexer::new(&test.chars().collect());
+
+        let actual = lexer.lex();
+
+        assert_eq!(actual, vec![]);
+    }
+
+    #[test]
+    fn lex_keyword() {
+        let test = String::from("class");
+
+        let mut lexer = Lexer::new(&test.chars().collect());
+        let actual = lexer.lex();
+
+        let expected = Node {
+            lexeme: Lexeme::Keyword(Keyword::CLASS),
+            line_number: 1,
+            start_col: 1,
+            end_col: 6,
+        };
+
+        assert_eq!(actual, vec![expected]);
     }
 }
