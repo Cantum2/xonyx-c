@@ -129,7 +129,10 @@ impl Lexer {
 
     fn parse_token(&mut self) -> Node {
         // only check after our current position -- micro-optimization
-        let index_of_terminal = self.get_index_of_next_terminal();
+        let mut index_of_terminal = self.get_index_of_next_terminal();
+        if let None = index_of_terminal {
+            index_of_terminal = Some(self.input.len());
+        }
         if let Some(index) = index_of_terminal {
             let string: String =
                 self.input[self.position..index + self.position].into_iter().collect();
