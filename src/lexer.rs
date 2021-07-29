@@ -45,10 +45,10 @@ pub enum Lexeme {
 
 #[derive(Debug, PartialEq)]
 pub struct Node {
-    lexeme: Lexeme,
-    line_number: i32,
-    start_col: usize,
-    end_col: usize,
+    pub lexeme: Lexeme,
+    pub line_number: i32,
+    pub start_col: usize,
+    pub end_col: usize,
 }
 
 #[derive(Debug)]
@@ -313,23 +313,33 @@ impl Lexer {
                     nodes.push(node);
                 },
                 '<' => {
-                    
-                    let node = Node {
+                    let mut node = Node {
                         lexeme: Lexeme::Symbol(Symbol::RelationshipOp(vec!['<'])),
                         line_number: self.current_line_no,
                         start_col: self.read_position,
                         end_col: self.read_position + 1,
                     };
+                    if self.peek_next_char() == '=' {
+                        self.read_position += 1;
+                        self.position += 1;
+                        node.lexeme = Lexeme::Symbol(Symbol::RelationshipOp(vec!['<', '=']));
+                        node.end_col = self.read_position + 1;
+                    }
                     nodes.push(node);
                 },
                 '>' => {
-                    
-                    let node = Node {
+                    let mut node = Node {
                         lexeme: Lexeme::Symbol(Symbol::RelationshipOp(vec!['>'])),
                         line_number: self.current_line_no,
                         start_col: self.read_position,
                         end_col: self.read_position + 1,
                     };
+                    if self.peek_next_char() == '=' {
+                        self.read_position += 1;
+                        self.position += 1;
+                        node.lexeme = Lexeme::Symbol(Symbol::RelationshipOp(vec!['>', '=']));
+                        node.end_col = self.read_position + 1;
+                    }
                     nodes.push(node);
                 },
                 '~' => {

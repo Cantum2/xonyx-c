@@ -3,16 +3,16 @@ use std::env;
 use std::io;
 use std::io::Read;
 mod lexer;
+mod parser;
 
 fn main() {
     let file = env::args().nth(1).expect("Supply a file name");
     let text = file_as_text(&file).expect("Bad file");
     println!("{}", &text);
     let mut lexer = lexer::Lexer::new(&text.chars().collect());
-    // assert_eq!(lexer.current_char, 'T');
-    // assert_eq!(lexer.input.len(), text.len());
     let tokens = lexer.lex();
-    println!("tokens: {:#?}", tokens);
+    // println!("tokens: {:#?}", tokens);
+    let ast = parser::Parser::new(tokens);
 }
 
 fn file_as_text(filename: &str) -> Result<String, io::Error> {
