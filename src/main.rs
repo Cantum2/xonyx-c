@@ -1,5 +1,5 @@
-use std::fs::File;
 use std::env;
+use std::fs::File;
 use std::io;
 use std::io::Read;
 mod lexer;
@@ -11,8 +11,8 @@ fn main() {
     println!("{}", &text);
     let mut lexer = lexer::Lexer::new(&text.chars().collect());
     let tokens = lexer.lex();
-    // println!("tokens: {:#?}", tokens);
-    let ast = parser::Parser::new(tokens);
+    println!("tokens: {:#?}", tokens);
+    // let ast = parser::Parser::new(tokens);
 }
 
 fn file_as_text(filename: &str) -> Result<String, io::Error> {

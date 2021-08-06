@@ -1,8 +1,7 @@
 use super::lexer;
-use super::lexer::Symbol;
-use super::lexer::Lexeme;
 use super::lexer::Keyword;
-
+use super::lexer::Lexeme;
+use super::lexer::Symbol;
 
 #[derive(Debug, PartialEq)]
 pub enum Production {
@@ -13,21 +12,21 @@ pub enum Production {
     TypeDec,
     FunctionDec,
     Expression,
-    Ident
+    Ident,
 }
 
 #[derive(Debug, PartialEq)]
 pub struct ASTNode {
-    production: Option<Production>, 
+    production: Option<Production>,
     children: Vec<ASTNode>,
     value: Option<Vec<char>>,
-    operator: Option<Vec<char>>
+    operator: Option<Vec<char>>,
 }
 
 #[derive(Debug, PartialEq)]
 pub struct Parser {
     tokens: Vec<lexer::Node>,
-    root: ASTNode
+    root: ASTNode,
 }
 
 impl Parser {
@@ -36,24 +35,28 @@ impl Parser {
             production: Some(Production::ProgStart),
             children: vec![],
             value: Some(vec![]),
-            operator: Some(vec![])
+            operator: Some(vec![]),
         };
-        Parser {
-            tokens,
-            root,
-        }
+        Parser { tokens, root }
     }
 
     pub fn parse_assignment(&mut self) -> ASTNode {
         let current_node = self.tokens.pop().unwrap();
-        ASTNode {
-            children: vec![self.parse_assignment()], // probably not always the case
-            operator: None,
-            value: match current_node.lexeme {
-                Lexeme::Keyword(value) => Some("let".chars().collect()),
-                _ => panic!("Expected Variable dec found {:?}", current_node.lexeme)
+        let next_node = self.tokens.pop().unwrap();
+        match next_node.lexeme {
+            Lexeme::Symbol(value) => match value {
+                Symbol::Assignment => ASTNode {
+                    children: vec![],
+                    operator: None,
+                    value: match next_node.lexeme {
+                        Lexeme::Number(value) => Some(value), // fix me: need to make it to where value is vec<char> or num
+                        _ => panic!("Expected Variable dec found {:?}", current_node.lexeme),
+                    },
+                    production: Some(Production::Vardec),
+                },
+                _ => panic!("Expected ':' found {:?}", value),
             },
-            production: Some(Production::TypeDec)
+            _ => panic!("Expected Symbol found {:?}", next_node.lexeme),
         }
     }
 
@@ -63,10 +66,14 @@ impl Parser {
             children: vec![self.parse_assignment()], // probably not always the case
             operator: None,
             value: match current_node.lexeme {
-                Lexeme::Keyword(value) => Some("let".chars().collect()),
-                _ => panic!("Expected Variable dec found {:?}", current_node.lexeme)
+                Lexeme::Identifier(value) => match value[..] {
+                    ['N', 'u', 'm', 'b', 'e', 'r'] => Some(value),
+                    ['S', 't', 'r', 'i', 'n', 'g'] => Some(value),
+                    _ => panic!("Expected String or Number found {:?}", value),
+                },
+                _ => panic!("Expected Identifier found {:?}", current_node.lexeme),
             },
-            production: Some(Production::TypeDec)
+            production: Some(Production::TypeDec),
         }
     }
 
@@ -74,25 +81,23 @@ impl Parser {
         let current_node = self.tokens.pop().unwrap();
         let next_node = self.tokens.pop().unwrap();
         match next_node.lexeme {
-            Lexeme::Symbol(value) => {
-                match value {
-                    Symbol::Colon => ASTNode {
-                        children: vec![self.parse_ident(), self.parse_type()],
-                        operator: None,
-                        value: match current_node.lexeme {
-                            Lexeme::Keyword(value) => Some("let".chars().collect()),
-                            _ => panic!("Expected Variable dec found {:?}", current_node.lexeme)
-                        },
-                        production: Some(Production::Vardec)
+            Lexeme::Symbol(value) => match value {
+                Symbol::Colon => ASTNode {
+                    // [0] is var name [1] is type (Number, String, Function etc.)
+                    children: vec![self.parse_ident(), self.parse_type()],
+                    operator: None,
+                    value: match current_node.lexeme {
+                        Lexeme::Keyword(value) => Some("let".chars().collect()),
+                        _ => panic!("Expected Variable dec found {:?}", current_node.lexeme),
                     },
-                    _ => panic!("Expected ':' found {:?}", value)
-                }
-            }
-            _ => panic!("Expected Symbol found {:?}", next_node.lexeme)
+                    production: Some(Production::Vardec),
+                },
+                _ => panic!("Expected ':' found {:?}", value),
+            },
+            _ => panic!("Expected Symbol found {:?}", next_node.lexeme),
         }
     }
 
-    
     pub fn parse_ident(&mut self) -> ASTNode {
         let current_node = self.tokens.pop().unwrap();
         ASTNode {
@@ -100,37 +105,36 @@ impl Parser {
             operator: None,
             value: match current_node.lexeme {
                 Lexeme::Identifier(value) => Some(value),
-                _ => panic!("Expected Identifier found {:?}", current_node.lexeme)
+                _ => panic!("Expected Identifier found {:?}", current_node.lexeme),
             },
-            production: None
+            production: None,
         }
     }
 
-    pub fn verify_next_symbol(&mut self, symbol_to_check: Symbol){
-        let current_token = self.tokens.pop().unwrap();
-        match current_token.lexeme {
-            Lexeme::Symbol(value) => {
-                match value {
-                    symbol_to_check => Ok,
-                    _ => panic!("Expected {:?} found {:?} ", symbol_to_check, value)
-                }
-            },
-            _ => panic!("Expected Symbol: {:?} found {:?} ", symbol_to_check, current_token.lexeme)
-        }
-    }
+    // pub fn verify_next_symbol(&mut self, symbol_to_check: Symbol) -> Result<Ok{
+    //     let current_token = self.tokens.pop().unwrap();
+    //     match current_token.lexeme {
+    //         Lexeme::Symbol(value) => match value {
+    //             symbol_to_check => Ok,
+    //             _ => panic!("Expected {:?} found {:?} ", symbol_to_check, value),
+    //         },
+    //         _ => panic!(
+    //             "Expected Symbol: {:?} found {:?} ",
+    //             symbol_to_check, current_token.lexeme
+    //         ),
+    //     }
+    // }
 
-    pub fn throw_error(&mut self) {
+    pub fn throw_error(&mut self) {}
 
-    }
-
-    pub fn parse(&self) -> ASTNode {
+    pub fn parse(&mut self) -> ASTNode {
         // check if first one is class
-        println!("tokens: {:#?}", self.tokens);        
+        println!("tokens: {:#?}", self.tokens);
         let mut ast_node = ASTNode {
             production: None,
             children: vec![],
             value: Some(vec![]),
-            operator: Some(vec![])
+            operator: Some(vec![]),
         };
         loop {
             let current_token = self.tokens.pop();
@@ -139,64 +143,42 @@ impl Parser {
                     match node.lexeme {
                         Lexeme::Keyword(value) => {
                             match value {
-                                Keyword::IF => {
-    
-                                },
-                                Keyword::RETURN => {
-    
-                                },
-                                Keyword::ELSE => {
-    
-                                },
+                                Keyword::IF => {}
+                                Keyword::RETURN => {}
+                                Keyword::ELSE => {}
                                 Keyword::CLASS => {
-                                    // verify next symbol is curly                             
-                                    self.root.children.push(
-                                        ASTNode {
-                                            children: vec![self.parse_ident(), self.parse()],
-                                            operator: vec![],
-                                            value: vec![],
-                                            production: Some(Production::ClassDec)
-                                        }
-                                    );
-                                },
+                                    // verify next symbol is curly
+                                    let n = ASTNode {
+                                        children: vec![self.parse_ident(), self.parse()],
+                                        operator: Some(vec![]),
+                                        value: Some(vec![]),
+                                        production: Some(Production::ClassDec),
+                                    };
+                                    self.root.children.push(n);
+                                }
                                 Keyword::LET => {
                                     ast_node = ASTNode {
                                         children: vec![self.parse_vardec()],
-                                        operator: vec![],
-                                        value: vec![],
-                                        production: Some(Production::ClassDec)
+                                        operator: Some(vec![]),
+                                        value: Some(vec![]),
+                                        production: Some(Production::ClassDec),
                                     };
-                                },
-                                Keyword::PRINT => {
-    
-                                },
-                                Keyword::SECTION => {
-    
-                                },
-                                Keyword::SNIPPET => {
-    
-                                },
-                            } 
-                        },
-                        Lexeme::Identifier(value) => {
-
-                        }
-                        Lexeme::Symbol(value) => {
-                            match value {
-                                _ => {
-    
                                 }
+                                Keyword::PRINT => {}
+                                Keyword::SECTION => {}
+                                Keyword::SNIPPET => {}
                             }
-                        },
-                        _ => {
-    
                         }
+                        Lexeme::Identifier(value) => {}
+                        Lexeme::Symbol(value) => match value {
+                            _ => {}
+                        },
+                        _ => {}
                     }
-                },
-                None => break
+                }
+                None => break,
             }
         }
         ast_node
     }
-    
 }
