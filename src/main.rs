@@ -10,9 +10,12 @@ fn main() {
     let text = file_as_text(&file).expect("Bad file");
     println!("{}", &text);
     let mut lexer = lexer::Lexer::new(&text.chars().collect());
-    let tokens = lexer.lex();
+    let mut tokens = lexer.lex();
+    tokens.reverse();
     println!("tokens: {:#?}", tokens);
-    // let ast = parser::Parser::new(tokens);
+    let mut parser = parser::Parser::new(tokens);
+    let ast = parser.parse();
+    println!("ast: {:#?}", ast);
 }
 
 fn file_as_text(filename: &str) -> Result<String, io::Error> {

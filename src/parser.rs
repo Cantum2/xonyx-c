@@ -43,35 +43,45 @@ impl Parser {
     pub fn parse_assignment(&mut self) -> ASTNode {
         let current_node = self.tokens.pop().unwrap();
         let next_node = self.tokens.pop().unwrap();
-        match next_node.lexeme {
+        println!("parse assignment curr node {:?}", current_node);
+        println!("parse assignment next node {:?}", next_node);
+        match current_node.lexeme {
             Lexeme::Symbol(value) => match value {
                 Symbol::Assignment => ASTNode {
                     children: vec![],
                     operator: None,
                     value: match next_node.lexeme {
-                        Lexeme::Number(value) => Some(value), // fix me: need to make it to where value is vec<char> or num
-                        _ => panic!("Expected Variable dec found {:?}", current_node.lexeme),
+                        Lexeme::Number(value) => Some(value.to_string().chars().collect()), // fix me: need to make it to where value is vec<char> or num
+                        _ => panic!("Expected Variable dec found {:?}"),
                     },
                     production: Some(Production::Vardec),
                 },
+                Symbol::SemiColon => ASTNode {
+                    children: vec![],
+                    operator: None,
+                    value: None,
+                    production: None,
+                },
                 _ => panic!("Expected ':' found {:?}", value),
             },
-            _ => panic!("Expected Symbol found {:?}", next_node.lexeme),
+            _ => panic!("Expected Assignment found {:?}", next_node.lexeme),
         }
     }
 
     pub fn parse_type(&mut self) -> ASTNode {
         let current_node = self.tokens.pop().unwrap();
+        let next_node = self.tokens.pop().unwrap();
+        println!("type {:?}", current_node);
         ASTNode {
             children: vec![self.parse_assignment()], // probably not always the case
             operator: None,
-            value: match current_node.lexeme {
+            value: match next_node.lexeme {
                 Lexeme::Identifier(value) => match value[..] {
                     ['N', 'u', 'm', 'b', 'e', 'r'] => Some(value),
                     ['S', 't', 'r', 'i', 'n', 'g'] => Some(value),
                     _ => panic!("Expected String or Number found {:?}", value),
                 },
-                _ => panic!("Expected Identifier found {:?}", current_node.lexeme),
+                _ => panic!("Expected Identifier found {:?}", next_node.lexeme),
             },
             production: Some(Production::TypeDec),
         }
@@ -80,15 +90,16 @@ impl Parser {
     pub fn parse_vardec(&mut self) -> ASTNode {
         let current_node = self.tokens.pop().unwrap();
         let next_node = self.tokens.pop().unwrap();
-        match next_node.lexeme {
+        println!("Current: {:?}", current_node);
+        println!("next: {:?}", next_node);
+        match current_node.lexeme {
             Lexeme::Symbol(value) => match value {
                 Symbol::Colon => ASTNode {
-                    // [0] is var name [1] is type (Number, String, Function etc.)
-                    children: vec![self.parse_ident(), self.parse_type()],
+                    children: vec![self.parse_type()],
                     operator: None,
-                    value: match current_node.lexeme {
-                        Lexeme::Keyword(value) => Some("let".chars().collect()),
-                        _ => panic!("Expected Variable dec found {:?}", current_node.lexeme),
+                    value: match next_node.lexeme {
+                        Lexeme::Keyword(value) => Some(vec!['w']),
+                        _ => panic!("Expected Variable dec found {:?}", next_node.lexeme),
                     },
                     production: Some(Production::Vardec),
                 },
@@ -100,6 +111,7 @@ impl Parser {
 
     pub fn parse_ident(&mut self) -> ASTNode {
         let current_node = self.tokens.pop().unwrap();
+        println!("Ident {:?}", current_node);
         ASTNode {
             children: vec![], // probably not always the case
             operator: None,
@@ -129,7 +141,7 @@ impl Parser {
 
     pub fn parse(&mut self) -> ASTNode {
         // check if first one is class
-        println!("tokens: {:#?}", self.tokens);
+        // println!("tokens: {:#?}", self.tokens);
         let mut ast_node = ASTNode {
             production: None,
             children: vec![],
@@ -138,6 +150,7 @@ impl Parser {
         };
         loop {
             let current_token = self.tokens.pop();
+            println!("Loop {:?}", current_token);
             match current_token {
                 Some(node) => {
                     match node.lexeme {
@@ -158,7 +171,7 @@ impl Parser {
                                 }
                                 Keyword::LET => {
                                     ast_node = ASTNode {
-                                        children: vec![self.parse_vardec()],
+                                        children: vec![self.parse_ident(), self.parse_vardec()],
                                         operator: Some(vec![]),
                                         value: Some(vec![]),
                                         production: Some(Production::ClassDec),
